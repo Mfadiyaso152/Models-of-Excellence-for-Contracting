@@ -1333,7 +1333,10 @@ export function SupervisorPaymentsView({
           ...i,
           status: 'pending' as const,
           paymentDate: undefined,
-          supervisorPaymentConfirmed: false
+          supervisorPaymentConfirmed: false,
+          transferReceiptUrl: undefined,
+          transferRef: undefined,
+          transferDate: undefined
         };
       }
       return i;
@@ -1341,7 +1344,7 @@ export function SupervisorPaymentsView({
 
     try {
       await onUpdateProject({ ...project, installments: updatedInstallments });
-      onRequestToast(`تم تعيين حالة دفعة (${installment.title}) كـ «لم يتم السداد».`);
+      onRequestToast(`تم رفض مستند السداد وإعادة دفعة (${installment.title}) كـ «غير مسددة» ليتمكن العميل من المحاولة مجدداً بإيصال سليم.`);
     } catch (err) {
       console.error(err);
       onRequestToast('حدث خطأ أثناء تعديل حالة الدفعة');
@@ -1365,6 +1368,10 @@ export function SupervisorPaymentsView({
     setSelectedReminderTarget(null);
   };
 
+  const pendingVerificationList = allInstallments.filter(
+    item => item.installment.status === 'under_review' || (item.installment.transferReceiptUrl && item.installment.status !== 'paid')
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -1373,6 +1380,86 @@ export function SupervisorPaymentsView({
           <Wallet className="w-4 h-4 text-[#C5B198]" />
         </div>
       </div>
+
+      {/* Bank Transfer Receipt Review Panel (NEW REQUIREMENT - Compact Design) */}
+      {pendingVerificationList.length > 0 && (
+        <div className="bg-amber-50/50 rounded-2xl p-4 border border-amber-200/70 space-y-2.5 shadow-2xs">
+          <div className="flex items-center gap-2 pb-1.5 border-b border-amber-200/40">
+            <div className="w-6 h-6 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-700 shrink-0">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+            </div>
+            <div>
+              <h4 className="text-[11px] font-black text-amber-900">طلبات تأكيد السداد ({pendingVerificationList.length})</h4>
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+            {pendingVerificationList.map((item, idx) => {
+              const inst = item.installment;
+              const cl = item.client;
+              return (
+                <div 
+                  key={`pending-verify-${inst.id || idx}`}
+                  className="bg-white p-3 rounded-xl border border-amber-200/80 shadow-3xs flex items-center justify-between gap-3 transition-all hover:border-amber-300"
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-[10px] font-black text-[#1C3022] bg-[#EFE7DC] px-1.5 py-0.5 rounded-md">
+                        {item.project.title}
+                      </span>
+                      <span className="text-slate-300 font-bold">•</span>
+                      <span className="text-[10px] font-black text-[#1C3022]">{cl?.name || 'عميل'}</span>
+                    </div>
+                    <div className="text-[11px] font-bold text-slate-700">
+                      الدفعة: <span className="font-black text-[#1C3022]">{inst.title}</span> <span className="text-emerald-700 font-black">{inst.amount}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-slate-400 font-bold flex-wrap">
+                      {inst.transferDate && <span>التاريخ: {inst.transferDate}</span>}
+                      {inst.transferRef && (
+                        <>
+                          <span>•</span>
+                          <span>المرجع: {inst.transferRef}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {inst.transferReceiptUrl && (
+                      <button
+                        type="button"
+                        title="معاينة الإيصال"
+                        onClick={() => setPreviewReceiptUrl(inst.transferReceiptUrl || null)}
+                        className="bg-slate-50 hover:bg-slate-100 text-[#1C3022] w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center transition-all shadow-3xs"
+                      >
+                        <Eye className="w-4 h-4 text-[#C5B198]" />
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      title="تأكيد السداد"
+                      onClick={() => handleConfirmPayment(item.project, inst)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white w-8 h-8 rounded-lg flex items-center justify-center transition-all shadow-3xs"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+
+                    <button
+                      type="button"
+                      title="رفض / لم تصل الحوالة"
+                      onClick={() => handleRejectOrUnmarkPayment(item.project, inst)}
+                      className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 w-8 h-8 rounded-lg flex items-center justify-center transition-all shadow-3xs"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Installments List */}
       <div className="space-y-2.5">
@@ -1391,9 +1478,16 @@ export function SupervisorPaymentsView({
               >
                 {/* Project Info & Amount */}
                 <div className="min-w-0">
-                  <h4 className="text-xs font-black text-[#1C3022] truncate">
-                    {item.project.title}
-                  </h4>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <h4 className="text-xs font-black text-[#1C3022] truncate">
+                      {item.project.title}
+                    </h4>
+                    {item.client && (
+                      <span className="text-[9px] text-slate-400 font-bold bg-slate-50 border border-slate-100/80 px-1.5 py-0.5 rounded-md shrink-0">
+                        العميل: {item.client.name}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 mt-0.5 text-[11px]">
                     <span className="text-slate-500 font-bold">{item.installment.title}</span>
                     <span className="text-slate-300">•</span>
@@ -1404,14 +1498,16 @@ export function SupervisorPaymentsView({
                 {/* Actions: Checkmark Toggle + Reminder Alert Icon */}
                 <div className="flex items-center gap-2 shrink-0">
                   {/* Reminder alert icon button - icon only */}
-                  <button
-                    type="button"
-                    onClick={() => handleSendReminder(item)}
-                    className="w-9 h-9 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center transition-all shadow-sm active:scale-95"
-                    title="إرسال تنبيه سداد"
-                  >
-                    <BellRing className="w-4 h-4 text-amber-700" />
-                  </button>
+                  {!isPaid && (
+                    <button
+                      type="button"
+                      onClick={() => handleSendReminder(item)}
+                      className="w-9 h-9 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center transition-all shadow-sm active:scale-95"
+                      title="إرسال تنبيه سداد"
+                    >
+                      <BellRing className="w-4 h-4 text-amber-700" />
+                    </button>
+                  )}
 
                   {/* Paid Toggle Checkmark Button */}
                   <button
