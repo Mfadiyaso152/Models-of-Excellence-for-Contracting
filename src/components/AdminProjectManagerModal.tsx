@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { storeFile } from '../utils/fileCache';
 import {
   X,
   Sliders,
@@ -32,6 +33,7 @@ import {
 } from 'lucide-react';
 import { Project, ConstructionPhase, Installment, EngineerRequest, ProjectStatus, ProjectDocument, getInstallmentOverdueStatus } from '../types';
 import { downloadFile } from '../utils/fileDownloader';
+import { ProjectService } from '../services/dbService';
 
 interface Props {
   project: Project;
@@ -262,14 +264,21 @@ export function AdminProjectManagerModal({
         return;
       }
       const reader = new FileReader();
-      reader.onload = (uploadEvent) => {
+      reader.onload = async (uploadEvent) => {
         const resultUrl = uploadEvent.target?.result as string;
         if (resultUrl) {
-          setImages(prev => ({
-            ...prev,
-            [imageCategory]: [...(prev[imageCategory] || []), resultUrl]
-          }));
-          onRequestToast('تم رفع الصورة بنجاح');
+          try {
+            const imgKey = `img-${Date.now()}-${Math.random().toString(36).slice(-4)}`;
+            const cachedUrl = await storeFile(imgKey, resultUrl);
+            setImages(prev => ({
+              ...prev,
+              [imageCategory]: [...(prev[imageCategory] || []), cachedUrl]
+            }));
+            onRequestToast('تم رفع الصورة بنجاح');
+          } catch (err) {
+            console.error('Error caching image upload:', err);
+            onRequestToast('حدث خطأ أثناء معالجة الصورة');
+          }
         }
       };
       reader.readAsDataURL(file);
@@ -293,14 +302,21 @@ export function AdminProjectManagerModal({
     const sizeStr = file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${sizeKB} KB`;
 
     const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
+    reader.onload = async (uploadEvent) => {
       const resultUrl = uploadEvent.target?.result as string;
       if (resultUrl) {
-        setNewDocFileUrl(resultUrl);
-        setNewDocFileName(file.name);
-        setNewDocFileSize(sizeStr);
-        if (!newDocName.trim()) {
-          setNewDocName(file.name.replace(/\.[^/.]+$/, ''));
+        try {
+          const docKey = `doc-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+          const cachedUrl = await storeFile(docKey, resultUrl);
+          setNewDocFileUrl(cachedUrl);
+          setNewDocFileName(file.name);
+          setNewDocFileSize(sizeStr);
+          if (!newDocName.trim()) {
+            setNewDocName(file.name.replace(/\.[^/.]+$/, ''));
+          }
+        } catch (err) {
+          console.error('Error caching doc upload:', err);
+          onRequestToast('حدث خطأ أثناء معالجة المستند');
         }
       }
     };
@@ -361,6 +377,23 @@ export function AdminProjectManagerModal({
       } catch (err) {
         console.error('Error cancelling project:', err);
         onRequestToast('حدث خطأ أثناء إلغاء المشروع');
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
+
+  // Delete Project
+  const handleDeleteProject = async () => {
+    if (window.confirm('هل أنت متأكد من رغبتك في حذف هذا المشروع نهائياً من النظام؟ سيتم حذفه من عندك ومن عند العميل ولا يمكن التراجع عن هذا الإجراء.')) {
+      setIsSaving(true);
+      try {
+        await ProjectService.deleteProject(project.id);
+        onRequestToast('تم حذف المشروع نهائياً بنجاح');
+        onClose();
+      } catch (err) {
+        console.error('Error deleting project:', err);
+        onRequestToast('حدث خطأ أثناء حذف المشروع');
       } finally {
         setIsSaving(false);
       }
@@ -1229,6 +1262,30 @@ export function AdminProjectManagerModal({
                   </button>
                 </div>
               </div>
+
+              {/* Delete Project Button Section (Only shown if cancelled) */}
+              {(status === 'ملغي' || project.status === 'ملغي') && (
+                <div className="pt-3 border-t border-red-200">
+                  <div className="p-3.5 bg-red-100/50 border border-red-300 rounded-2xl space-y-2">
+                    <span className="text-xs font-black text-red-950 block flex items-center gap-1">
+                      <Trash2 className="w-4 h-4 text-red-600" />
+                      <span>حذف المشروع نهائياً</span>
+                    </span>
+                    <p className="text-[10px] text-red-700 font-bold leading-relaxed">
+                      بما أن المشروع ملغي، يمكنك حذفه نهائياً من قاعدة البيانات ليختفي تماماً من شاشتك ومن شاشة العميل.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleDeleteProject}
+                      disabled={isSaving}
+                      className="w-full bg-red-700 hover:bg-red-800 text-white py-2 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>حذف المشروع والبيانات بالكامل</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

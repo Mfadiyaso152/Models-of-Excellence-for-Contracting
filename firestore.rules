@@ -15,5 +15,10 @@ service cloud.firestore {
     match /quotes/{quoteId} {
       allow read, write: if true;
     }
+
+    // Support messages collection
+    match /support_messages/{messageId} {
+      allow read, write: if true;
+    }
   }
 }

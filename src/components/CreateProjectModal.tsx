@@ -184,9 +184,7 @@ export function CreateProjectModal({
         phone: '0500000000',
         title: 'إدارة المشاريع'
       },
-      phases: phases.length > 0 ? phases : [
-        { id: 'PH-1', title: 'المرحلة الأولى', progress: 0, status: 'قيد الانتظار' }
-      ],
+      phases: phases,
       contracts: [
         {
           id: `CNT-${Date.now().toString().slice(-4)}`,
@@ -354,132 +352,60 @@ export function CreateProjectModal({
             )}
           </div>
 
-          {/* 5. Installments: Percentage or Manual */}
+          {/* 5. Installments: Percentage-based strictly */}
           <div className="bg-[#FAF7F2] p-4 rounded-[2rem] border border-[#E8E2D8] space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-xs font-black text-[#1C3022] flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-[#C5B198]" />
-                <span>جدول الدفعات المالية</span>
+                <span>جدول الدفعات المالية (بالنسبة المئوية %)</span>
               </span>
-              <div className="flex gap-1 bg-white p-1 rounded-xl border border-[#E8E2D8]">
-                <button
-                  type="button"
-                  onClick={() => setInstallmentMode('percentage')}
-                  className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all ${
-                    installmentMode === 'percentage'
-                      ? 'bg-[#D0A97E] text-[#1C3022]'
-                      : 'text-slate-400'
-                  }`}
-                >
-                  نسب مئوية (%)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setInstallmentMode('manual')}
-                  className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all ${
-                    installmentMode === 'manual'
-                      ? 'bg-[#D0A97E] text-[#1C3022]'
-                      : 'text-slate-400'
-                  }`}
-                >
-                  إدخال يدوي
-                </button>
-              </div>
             </div>
 
-            {installmentMode === 'percentage' ? (
-              <div className="space-y-2.5">
-                <div>
-                  <span className="text-[11px] font-bold text-[#C5B198] block mb-2">حدد عدد الدفعات:</span>
-                  <div className="flex gap-1">
-                    {[2, 3, 4, 5, 6].map(num => (
-                      <button
-                        key={num}
-                        type="button"
-                        onClick={() => handleUpdatePercentageCount(num)}
-                        className={`flex-1 py-1 rounded-lg text-xs font-black transition-all ${
-                          installmentCount === num
-                            ? 'bg-[#D0A97E] text-[#1C3022]'
-                            : 'bg-white border border-[#E8E2D8] text-[#1C3022]'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {Array.from({ length: installmentCount }).map((_, idx) => (
-                    <div key={idx} className="bg-white p-3 rounded-xl border border-[#E8E2D8] text-center">
-                      <span className="text-[11px] font-black text-[#1C3022] block mb-2">الدفعة {idx + 1}</span>
-                      <div className="flex items-center justify-center gap-1">
-                        <input
-                          type="number"
-                          min="1"
-                          max="100"
-                          value={percentages[idx] || 0}
-                          onChange={e => {
-                            const val = parseInt(e.target.value) || 0;
-                            const updated = [...percentages];
-                            updated[idx] = val;
-                            setPercentages(updated);
-                          }}
-                          className="w-12 bg-[#FAF7F2] border border-[#E8E2D8] rounded-lg text-center font-black text-[#1C3022] text-xs py-1 focus:border-[#D0A97E]"
-                        />
-                        <span className="text-xs font-bold text-[#C5B198]">%</span>
-                      </div>
-                    </div>
+            <div className="space-y-2.5">
+              <div>
+                <span className="text-[11px] font-bold text-[#C5B198] block mb-2">حدد عدد الدفعات:</span>
+                <div className="flex gap-1">
+                  {[2, 3, 4, 5, 6].map(num => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => handleUpdatePercentageCount(num)}
+                      className={`flex-1 py-1 rounded-lg text-xs font-black transition-all ${
+                        installmentCount === num
+                          ? 'bg-[#D0A97E] text-[#1C3022]'
+                          : 'bg-white border border-[#E8E2D8] text-[#1C3022]'
+                      }`}
+                    >
+                      {num}
+                    </button>
                   ))}
                 </div>
               </div>
-            ) : (
-              <div className="space-y-2">
-                {manualInstallments.map((inst, idx) => (
-                  <div key={inst.id || idx} className="bg-white p-3 rounded-xl border border-[#E8E2D8] space-y-2">
-                    <div className="flex gap-2">
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {Array.from({ length: installmentCount }).map((_, idx) => (
+                  <div key={idx} className="bg-white p-3 rounded-xl border border-[#E8E2D8] text-center">
+                    <span className="text-[11px] font-black text-[#1C3022] block mb-2">الدفعة {idx + 1}</span>
+                    <div className="flex items-center justify-center gap-1">
                       <input
-                        type="text"
-                        placeholder="مسمى الدفعة..."
-                        value={inst.title}
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={percentages[idx] || 0}
                         onChange={e => {
-                          const updated = [...manualInstallments];
-                          updated[idx].title = e.target.value;
-                          setManualInstallments(updated);
+                          const val = parseInt(e.target.value) || 0;
+                          const updated = [...percentages];
+                          updated[idx] = val;
+                          setPercentages(updated);
                         }}
-                        className="flex-1 bg-[#FAF7F2] border border-[#E8E2D8] rounded-lg px-3 py-2 text-xs font-bold text-[#1C3022] outline-none focus:border-[#D0A97E]"
+                        className="w-12 bg-[#FAF7F2] border border-[#E8E2D8] rounded-lg text-center font-black text-[#1C3022] text-xs py-1 focus:border-[#D0A97E]"
                       />
-                      <input
-                        type="text"
-                        placeholder="المبلغ (ر.س)..."
-                        value={inst.amount}
-                        onChange={e => {
-                          const updated = [...manualInstallments];
-                          updated[idx].amount = e.target.value;
-                          setManualInstallments(updated);
-                        }}
-                        className="w-24 bg-[#FAF7F2] border border-[#E8E2D8] rounded-lg px-3 py-2 text-xs font-bold text-[#1C3022] outline-none focus:border-[#D0A97E]"
-                        dir="ltr"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteManualInstallmentRow(idx)}
-                        className="text-red-500 hover:text-red-700 p-1"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <span className="text-xs font-bold text-[#C5B198]">%</span>
                     </div>
                   </div>
                 ))}
-                <button
-                  type="button"
-                  onClick={handleAddManualInstallmentRow}
-                  className="w-full bg-transparent border border-[#E8E2D8] py-3 rounded-xl text-xs font-black text-[#C5B198] hover:bg-[#2A3A2F]"
-                >
-                  + إضافة دفعة يدوية
-                </button>
               </div>
-            )}
+            </div>
           </div>
 
           <button

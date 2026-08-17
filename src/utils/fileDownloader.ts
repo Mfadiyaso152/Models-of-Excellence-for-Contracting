@@ -4,16 +4,26 @@
  * Handles iOS Safari, Android Chrome, and Desktop browsers seamlessly.
  */
 
-export function downloadFile(url: string, fileName: string = 'document.pdf') {
+import { getFile } from './fileCache';
+
+export async function downloadFile(url: string, fileName: string = 'document.pdf') {
   if (!url) {
     alert('رابط الملف غير متوفر للتحميل.');
     return;
   }
 
   try {
+    // Resolve cache URL if applicable
+    const resolvedUrl = url.startsWith('localdb://') ? await getFile(url) : url;
+
+    if (!resolvedUrl) {
+      alert('محتوى الملف غير متوفر أو تالف.');
+      return;
+    }
+
     // If it's a data URL (e.g. data:application/pdf;base64,...)
-    if (url.startsWith('data:')) {
-      const parts = url.split(',');
+    if (resolvedUrl.startsWith('data:')) {
+      const parts = resolvedUrl.split(',');
       const mimeMatch = parts[0].match(/:(.*?);/);
       const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
       const bstr = atob(parts[1]);
@@ -41,7 +51,7 @@ export function downloadFile(url: string, fileName: string = 'document.pdf') {
 
     // Standard HTTP / HTTPS URL
     const link = document.createElement('a');
-    link.href = url;
+    link.href = resolvedUrl;
     link.download = fileName;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';

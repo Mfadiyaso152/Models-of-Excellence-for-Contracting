@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Users,
@@ -44,6 +44,7 @@ import { DeleteClientByAdminModal } from './DeleteClientByAdminModal';
 import { DeleteProjectByAdminModal } from './DeleteProjectByAdminModal';
 import { downloadFile } from '../utils/fileDownloader';
 import { DigitalContractSigningModal } from './DigitalContractSigningModal';
+import { storeFile } from '../utils/fileCache';
 
 // -------------------------------------------------------------
 // 1. SUPERVISOR HOME VIEW: "العملاء" (Clients & Overview)
@@ -112,7 +113,7 @@ export function SupervisorClientsView({
       id: `PROJ-${Date.now().toString().slice(-6)}`,
       clientId: quote.clientId,
       title: quote.projectName,
-      status: 'قيد التنفيذ',
+      status: 'بانتظار توقيع العميل',
       progress: 0,
       location: quote.description?.split('|')?.[0]?.replace('الموقع:', '')?.trim() || 'الرياض',
       licenseNumber: `BLD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -135,14 +136,39 @@ export function SupervisorClientsView({
           title: `عقد تنفيذ ${quote.projectName}`,
           signDate: signatureData.signDate,
           totalValue: quote.quoteAmount || quote.amount || 'حسب جدول الدفعات',
-          status: 'ساري وموثق',
+          status: 'بانتظار توقيع العميل',
+          pdfUrl: signatureData.contractDocument?.fileUrl || undefined,
+          supervisorSignerName: signatureData.signerName,
+          supervisorSignedDate: new Date().toLocaleDateString('ar-SA'),
           termsSummary: [
             'الالتزام بالمخططات الهندسية المعتمدة وكود البناء السعودي',
             'جدول دفعات حسب الإنجاز المالي والإنشائي'
           ]
         }
       ],
-      documents: signatureData.contractDocument ? [signatureData.contractDocument] : [],
+      documents: (() => {
+        const docs: any[] = [];
+        if (signatureData.contractDocument) {
+          docs.push({
+            ...signatureData.contractDocument,
+            name: `مسودة عقد المقاولة - ${quote.projectName}`,
+            category: 'عقد معتمد'
+          });
+        }
+        if (quote.fileUrl) {
+          docs.push({
+            id: `DOC-QUOTE-${Date.now().toString().slice(-4)}`,
+            name: `عرض السعر المعتمد - ${quote.projectName}`,
+            category: 'مستند رسمي',
+            fileUrl: quote.fileUrl,
+            fileName: quote.fileName || 'quote_proposal.pdf',
+            fileSize: quote.fileSize || '1.2 MB',
+            uploadedAt: new Date().toISOString().split('T')[0],
+            uploadedBy: 'المشرف العام'
+          });
+        }
+        return docs;
+      })(),
       phases: [],
       images: { before: [], progress50: [], after: [], plans: [], officialPapers: [] },
       engineerRequests: []
@@ -154,7 +180,7 @@ export function SupervisorClientsView({
       await ProjectService.deleteQuoteRequest(quote.id);
       setQuoteForContractSigning(null);
       onRefreshQuotes();
-      onRequestToast('تم توقيع العقد بنجاح وتحويل الطلب إلى مشروع نشط وحذف طلب عرض السعر!');
+      onRequestToast('تم إعداد العقد بنجاح وإرساله لحساب العميل للتوقيع وتحويل الطلب إلى مشروع!');
     } catch (err) {
       console.error(err);
       onRequestToast('حدث خطأ أثناء اعتماد المشروع وتوقيع العقد');
@@ -414,22 +440,19 @@ export function SupervisorClientsView({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-emerald-950 font-black text-xs">
                           <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                          <span>تمت موافقة العميل على عرض السعر - بانتظار توقيع العقد</span>
+                          <span>تمت موافقة العميل على عرض السعر - بانتظار إعداد العقد</span>
                         </div>
                         <span className="text-[10px] font-black bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
                           جاهز للتعاقد
                         </span>
                       </div>
-                      <p className="text-[11px] text-emerald-900 font-medium leading-relaxed">
-                        قام العميل بالموافقة على العرض والدفعات. يمكنك الآن إرفاق صيغة العقد والتوقيع الإلكتروني لتحويله فوراً إلى مشروع تنفيذي.
-                      </p>
                       <button
                         type="button"
                         onClick={() => setQuoteForContractSigning(quote)}
                         className="w-full bg-[#1C3022] text-white hover:bg-[#122116] py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
                       >
                         <FileCheck className="w-4 h-4 text-[#C5B198]" />
-                        <span>إرفاق العقد والتوقيع الإلكتروني واعتماد المشروع</span>
+                        <span>تجهيز وإرسال مسودة العقد للعميل</span>
                       </button>
                     </div>
                   )}
@@ -588,7 +611,7 @@ function SupervisorSendQuoteModal({
   onClose: () => void;
   onSent: () => void;
 }) {
-  const [quoteAmount, setQuoteAmount] = useState(quote.quoteAmount || quote.amount || '450,000 ر.س');
+  const [quoteAmount, setQuoteAmount] = useState(quote.quoteAmount || quote.amount || '0');
   const [adminNote, setAdminNote] = useState(quote.adminNote || 'يسرنا تقديم هذا العرض الهندسي ونظام الدفعات المعتمد من شركة نماذج التميز.');
   const [fileUrl, setFileUrl] = useState<string | null>(quote.fileUrl || null);
   const [fileName, setFileName] = useState<string>(quote.fileName || '');
@@ -603,11 +626,24 @@ function SupervisorSendQuoteModal({
     return [];
   });
 
-  // Calculate sum of installments
-  const totalInstallmentsSum = installments.reduce((sum, i) => sum + (i.amountNumber || 0), 0);
   const parsedQuoteAmount = parseFloat(quoteAmount.replace(/[^0-9.]/g, '')) || 0;
 
+  // Recalculate installments when quoteAmount changes
+  useEffect(() => {
+    setInstallments(prev => prev.map(inst => {
+      const pct = inst.percentage || 0;
+      const calculatedAmount = Math.round((parsedQuoteAmount * pct) / 100);
+      return {
+        ...inst,
+        amountNumber: calculatedAmount,
+        amount: `${calculatedAmount.toLocaleString('ar-SA')} ر.س (${pct}%)`
+      };
+    }));
+  }, [quoteAmount, parsedQuoteAmount]);
 
+  // Calculate sum of installments
+  const totalInstallmentsSum = installments.reduce((sum, i) => sum + (i.amountNumber || 0), 0);
+  const totalPercentagesSum = installments.reduce((sum, i) => sum + (i.percentage || 0), 0);
 
   const handleAddPresetInstallment = (pct: number) => {
     const calculatedAmount = Math.round((parsedQuoteAmount * pct) / 100);
@@ -617,8 +653,9 @@ function SupervisorSendQuoteModal({
     const newInst: Installment = {
       id: `INST-${Date.now().toString().slice(-4)}`,
       title: defaultTitle,
-      amount: `${calculatedAmount.toLocaleString('ar-SA')} ر.س`,
+      amount: `${calculatedAmount.toLocaleString('ar-SA')} ر.س (${pct}%)`,
       amountNumber: calculatedAmount,
+      percentage: pct,
       dueDate: new Date(Date.now() + (installments.length + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       status: 'pending'
     };
@@ -629,13 +666,15 @@ function SupervisorSendQuoteModal({
     setInstallments(installments.filter((_, i) => i !== index));
   };
 
-  const handleUpdateInstallmentAmount = (index: number, val: string) => {
-    const num = parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
+  const handleUpdateInstallmentPercentage = (index: number, val: string) => {
+    const pct = parseFloat(val) || 0;
+    const calculatedAmount = Math.round((parsedQuoteAmount * pct) / 100);
     const updated = [...installments];
     updated[index] = {
       ...updated[index],
-      amountNumber: num,
-      amount: `${num.toLocaleString('ar-SA')} ر.س`
+      percentage: pct,
+      amountNumber: calculatedAmount,
+      amount: `${calculatedAmount.toLocaleString('ar-SA')} ر.س (${pct}%)`
     };
     setInstallments(updated);
   };
@@ -654,9 +693,16 @@ function SupervisorSendQuoteModal({
     setFileSize(sizeFormatted);
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       if (event.target?.result) {
-        setFileUrl(event.target.result as string);
+        try {
+          const fileKey = `quote-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+          const cachedUrl = await storeFile(fileKey, event.target.result as string);
+          setFileUrl(cachedUrl);
+        } catch (err) {
+          console.error('Error caching quote proposal upload:', err);
+          alert('حدث خطأ أثناء معالجة وحفظ الملف.');
+        }
       }
     };
     reader.readAsDataURL(file);
@@ -758,13 +804,21 @@ function SupervisorSendQuoteModal({
             </div>
 
             {/* Total check bar */}
-            <div className="p-2.5 bg-white rounded-xl border border-[#E8E2D8] flex items-center justify-between text-[11px]">
-              <span className="text-slate-500 font-bold">مجموع مبالغ الدفعات:</span>
-              <span className={`font-black ${
-                Math.abs(totalInstallmentsSum - parsedQuoteAmount) < 100 ? 'text-emerald-800' : 'text-amber-800'
-              }`}>
-                {totalInstallmentsSum.toLocaleString('ar-SA')} ر.س
-              </span>
+            <div className="p-2.5 bg-white rounded-xl border border-[#E8E2D8] flex flex-col gap-1 text-[11px]">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-bold">مجموع مبالغ الدفعات:</span>
+                <span className={`font-black ${
+                  Math.abs(totalInstallmentsSum - parsedQuoteAmount) < 100 ? 'text-emerald-800' : 'text-amber-800'
+                }`}>
+                  {totalInstallmentsSum.toLocaleString('ar-SA')} ر.س / {parsedQuoteAmount.toLocaleString('ar-SA')} ر.س
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t border-slate-100 pt-1">
+                <span className="text-slate-500 font-bold">إجمالي النسب المئوية:</span>
+                <span className={`font-black ${totalPercentagesSum === 100 ? 'text-emerald-800' : 'text-amber-800'}`}>
+                  {totalPercentagesSum}% من 100%
+                </span>
+              </div>
             </div>
 
             {/* Installments Rows */}
@@ -803,12 +857,14 @@ function SupervisorSendQuoteModal({
 
                   <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#F0EBE1]">
                     <div>
-                      <span className="text-[9px] text-slate-400 font-bold block mb-0.5">المبلغ (ر.س):</span>
+                      <span className="text-[9px] text-slate-400 font-bold block mb-0.5">النسبة المئوية (%):</span>
                       <input
-                        type="text"
-                        value={inst.amountNumber || ''}
-                        onChange={e => handleUpdateInstallmentAmount(idx, e.target.value)}
-                        className="w-full bg-[#FAF7F2] border border-[#E8E2D8] rounded-lg px-2 py-1 text-xs font-bold text-[#1C3022] outline-none"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={inst.percentage || 0}
+                        onChange={e => handleUpdateInstallmentPercentage(idx, e.target.value)}
+                        className="w-full bg-[#FAF7F2] border border-[#E8E2D8] rounded-lg px-2 py-1 text-xs font-bold text-[#1C3022] outline-none focus:border-[#C5B198]"
                         dir="ltr"
                       />
                     </div>
@@ -822,9 +878,14 @@ function SupervisorSendQuoteModal({
                           updated[idx] = { ...updated[idx], dueDate: e.target.value };
                           setInstallments(updated);
                         }}
-                        className="w-full bg-[#FAF7F2] border border-[#E8E2D8] rounded-lg px-2 py-1 text-xs font-bold text-[#1C3022] outline-none"
+                        className="w-full bg-[#FAF7F2] border border-[#E8E2D8] rounded-lg px-2 py-1 text-xs font-bold text-[#1C3022] outline-none focus:border-[#C5B198]"
                       />
                     </div>
+                  </div>
+
+                  <div className="pt-1.5 flex items-center justify-between text-[10px] text-slate-500">
+                    <span>المبلغ المحتسب:</span>
+                    <span className="font-bold text-[#1C3022]">{inst.amount}</span>
                   </div>
                 </div>
               ))}

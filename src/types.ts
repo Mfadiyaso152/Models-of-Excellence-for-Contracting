@@ -6,6 +6,7 @@ export interface Installment {
   title: string;
   amount: string;
   amountNumber: number;
+  percentage?: number;
   dueDate: string;
   status: 'paid' | 'pending' | 'under_review';
   clientApprovalStatus?: 'approved' | 'rejected' | 'pending';

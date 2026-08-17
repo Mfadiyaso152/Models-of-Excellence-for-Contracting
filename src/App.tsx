@@ -46,11 +46,12 @@ import {
   FileCheck,
   FileUp,
   XCircle,
-  Headphones
+  Headphones,
+  UploadCloud
 } from 'lucide-react';
 
 // Types and Components
-import { Project, QuoteRequest, User, Installment, getInstallmentOverdueStatus } from './types';
+import { Project, QuoteRequest, User, Installment, getInstallmentOverdueStatus, ProjectDocument } from './types';
 import { Logo } from './components/Logo';
 import { ProjectCustomizationModal } from './components/ProjectCustomizationModal';
 import { PaymentGatewayModal } from './components/PaymentGatewayModal';
@@ -63,6 +64,7 @@ import { CustomerSupportModal } from './components/CustomerSupportModal';
 import { UserService, ProjectService } from './services/dbService';
 import { CompletePhoneModal } from './components/CompletePhoneModal';
 import { downloadFile } from './utils/fileDownloader';
+import { storeFile } from './utils/fileCache';
 import { 
   auth, 
   googleProvider, 
@@ -421,7 +423,11 @@ export default function App() {
 
       {/* Brand Header - Cylindrical Pill Design (Fixed at Top) */}
       <div className="sticky top-0 z-40 px-3 sm:px-4 pt-2.5 pb-1 bg-gradient-to-b from-[#FAF7F2] via-[#FAF7F2]/90 to-transparent backdrop-blur-[2px] transition-all duration-300">
-        <header className="bg-[#1C3022] text-white px-4 sm:px-6 py-2 sm:py-2.5 rounded-full border border-[#284430] shadow-xl shadow-black/10 backdrop-blur-md">
+        <motion.header 
+          whileTap={{ scale: 0.98, y: 1 }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          className="bg-[#1C3022] text-white px-4 sm:px-6 py-2 sm:py-2.5 rounded-full border border-[#284430] shadow-xl shadow-black/10 backdrop-blur-md cursor-pointer select-none"
+        >
           <div className="flex items-center justify-between">
             {/* Institution Corner Logo & Brand Name */}
             <div className="flex items-center gap-2.5 sm:gap-3">
@@ -437,7 +443,12 @@ export default function App() {
               >
                 <Logo size="sm" showText={false} />
               </motion.div>
-              <div>
+              <div
+                onClick={() => {
+                  setSelectedProject(null);
+                  setActiveTab('home');
+                }}
+              >
                 <div className="flex items-center gap-2">
                   <h1 className="text-sm sm:text-base font-black tracking-wide text-white">نماذج التميز</h1>
                   <span className="inline-flex items-center justify-center h-5 px-2 bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] font-black rounded-full leading-none shadow-xs">
@@ -455,7 +466,10 @@ export default function App() {
             <div className="flex items-center gap-2">
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setShowSupportModal(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowSupportModal(true);
+                }}
                 className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#C5B198] text-[#1C3022] flex items-center justify-center shadow-sm hover:bg-[#b5a188] active:scale-95 transition-all"
                 title="خدمة العملاء"
                 aria-label="خدمة العملاء"
@@ -464,7 +478,7 @@ export default function App() {
               </motion.button>
             </div>
           </div>
-        </header>
+        </motion.header>
       </div>
 
       {/* Main Tab Views */}
@@ -548,7 +562,8 @@ export default function App() {
                                 location: quote.description?.split('|')?.[0]?.replace('الموقع:', '')?.trim() || 'الرياض',
                                 status: 'بانتظار العقد',
                                 progress: 0,
-                                quoteRequestId: quote.id
+                                quoteRequestId: quote.id,
+                                installments: quote.installments || []
                               });
                               setProjects(prev => [newProj, ...prev]);
                             }
@@ -602,6 +617,16 @@ export default function App() {
                       onSelect={setSelectedProject}
                       onCustomize={setCustomizingProject}
                       onRequestQuote={() => setShowQuoteForm(true)}
+                      onDeleteProject={async (projectId) => {
+                        try {
+                          await ProjectService.deleteProject(projectId);
+                          triggerToast('تم حذف المشروع الملغي بنجاح من حسابك.');
+                          setSelectedProject(null);
+                        } catch (err) {
+                          console.error(err);
+                          triggerToast('حدث خطأ أثناء حذف المشروع.');
+                        }
+                      }}
                     />
                   )
                 )}
@@ -1472,6 +1497,7 @@ function HomeView({
   onRequestQuote: () => void; 
   onGoToPayments: () => void;
 }) {
+  const [expandedQuotes, setExpandedQuotes] = useState<Record<string, boolean>>({});
   const pendingInstallment = projects.flatMap(p => p.installments.map(i => ({ installment: i, project: p }))).find(item => item.installment.status === 'pending');
   const overdue7DaysItem = projects.flatMap(p => p.installments.map(i => ({ 
     installment: i, 
@@ -1613,6 +1639,57 @@ function HomeView({
                           {quote.adminNote}
                         </div>
                       )}
+
+                      {/* Expandable Installments and Details (زر المزيد) */}
+                      <div className="pt-2.5 border-t border-[#E8E2D8]">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedQuotes(prev => ({ ...prev, [quote.id]: !prev[quote.id] }))}
+                          className="text-xs font-black text-[#A99379] hover:text-[#1C3022] flex items-center gap-1.5 transition-colors focus:outline-none"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>
+                            {expandedQuotes[quote.id] 
+                              ? 'إخفاء تفاصيل الدفعات وعرض السعر ↑' 
+                              : 'تفاصيل الدفعات وعرض السعر المقترح (المزيد...) ↓'}
+                          </span>
+                        </button>
+
+                        {expandedQuotes[quote.id] && (
+                          <div className="mt-3 bg-white border border-[#E8E2D8] rounded-xl p-3.5 space-y-3 shadow-2xs">
+                            <h5 className="text-[11px] font-black text-[#1C3022] border-b border-[#F0EBE1] pb-1.5">
+                              جدول الدفعات المالية المقترحة لعرض السعر:
+                            </h5>
+                            {quote.installments && quote.installments.length > 0 ? (
+                              <div className="space-y-2 max-h-56 overflow-y-auto no-scrollbar">
+                                {quote.installments.map((inst, index) => (
+                                  <div 
+                                    key={inst.id || index} 
+                                    className="flex items-center justify-between text-xs py-2 border-b border-slate-50 last:border-0"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-5 h-5 rounded-full bg-[#1C3022] text-[#C5B198] text-[9px] font-black flex items-center justify-center shrink-0">
+                                        {index + 1}
+                                      </span>
+                                      <span className="font-bold text-[#1C3022]">{inst.title}</span>
+                                    </div>
+                                    <div className="text-left shrink-0">
+                                      <span className="font-black text-[#1C3022] block">{inst.amount}</span>
+                                      {inst.dueDate && (
+                                        <span className="text-[9px] text-slate-400 block font-bold mt-0.5">
+                                          تاريخ التقريبي: {inst.dueDate}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-slate-400 font-bold">لم يتم تحديد دفعات مخصصة لعرض السعر هذا.</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Client Decision Actions */}
                       {isDecisionPending && quote.status === 'تم إرسال العرض' && onDecisionQuote && (
@@ -1766,12 +1843,14 @@ function HomeView({
 function ProjectsListView({ 
   projects, 
   onSelect,
-  onRequestQuote
+  onRequestQuote,
+  onDeleteProject
 }: { 
   projects: Project[]; 
   onSelect: (p: Project) => void;
   onCustomize?: (p: Project) => void;
   onRequestQuote: () => void;
+  onDeleteProject: (projectId: string) => Promise<void>;
 }) {
   const activeProjects = projects.filter(p => !p.isDeleted);
 
@@ -1818,19 +1897,44 @@ function ProjectsListView({
                   <Building2 className="w-4 h-4 text-[#C5B198]" />
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-sm font-black text-[#1C3022] truncate">{p.title}</h4>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <h4 className="text-sm font-black text-[#1C3022] truncate">{p.title}</h4>
+                    {p.status === 'ملغي' && (
+                      <span className="bg-red-50 text-red-700 text-[9px] font-black px-2 py-0.5 rounded-lg border border-red-200">
+                        ملغي
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.94 }}
-                onClick={() => onSelect(p)}
-                className="bg-[#1C3022] text-white hover:bg-[#122116] px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-sm shrink-0"
-              >
-                <span>عرض المشروع</span>
-                <ChevronLeft className="w-3.5 h-3.5 text-[#C5B198]" />
-              </motion.button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {p.status === 'ملغي' && (
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: 0.94 }}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (window.confirm('هل أنت متأكد من رغبتك في حذف هذا المشروع الملغي نهائياً من حسابك؟')) {
+                        await onDeleteProject(p.id);
+                      }
+                    }}
+                    className="bg-red-50 text-red-600 hover:bg-red-100 p-2 rounded-xl text-xs font-black transition-all border border-red-200 shrink-0"
+                    title="حذف المشروع"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </motion.button>
+                )}
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.94 }}
+                  onClick={() => onSelect(p)}
+                  className="bg-[#1C3022] text-white hover:bg-[#122116] px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all shadow-sm shrink-0"
+                >
+                  <span>عرض المشروع</span>
+                  <ChevronLeft className="w-3.5 h-3.5 text-[#C5B198]" />
+                </motion.button>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -1971,11 +2075,16 @@ function ProjectDetailView({
   const [activeStage, setActiveStage] = useState<'before' | 'progress50' | 'after' | 'plans'>('progress50');
   const [contractNotes, setContractNotes] = useState('');
   const [isSubmittingContract, setIsSubmittingContract] = useState(false);
+  const [clientSignedDoc, setClientSignedDoc] = useState<ProjectDocument | null>(null);
 
   const contract = project.contracts?.[0];
 
   const handleContractDecision = async (decision: 'accept' | 'reject') => {
     if (!onUpdateProject || !contract) return;
+    if (decision === 'accept' && !clientSignedDoc) {
+      if (onRequestToast) onRequestToast('يرجى إرفاق ملف العقد بعد توقيعه يدوياً لإتمام الاعتماد والتحميل');
+      return;
+    }
     if (decision === 'reject' && !contractNotes.trim()) {
       if (onRequestToast) onRequestToast('يرجى كتابة سبب أو ملاحظات الرفض لتتمكن من إرسالها للمشرف');
       return;
@@ -1989,7 +2098,8 @@ function ProjectDetailView({
             ...c,
             status: decision === 'accept' ? ('ساري وموثق' as const) : ('مرفوض' as const),
             clientSignedDate: new Date().toLocaleDateString('ar-SA'),
-            clientSignerName: contractNotes.trim() ? `${c.clientSignerName || ''} (ملاحظات: ${contractNotes.trim()})` : c.clientSignerName
+            clientSignerName: project.title || 'العميل',
+            pdfUrl: decision === 'accept' ? (clientSignedDoc?.fileUrl || c.pdfUrl) : c.pdfUrl
           };
         }
         return c;
@@ -1998,7 +2108,8 @@ function ProjectDetailView({
       const updatedProject: Project = {
         ...project,
         contracts: updatedContracts,
-        status: decision === 'accept' ? 'مكتمل' : project.status,
+        status: decision === 'accept' ? 'قيد التنفيذ' : 'بانتظار العقد',
+        documents: decision === 'accept' && clientSignedDoc ? [...(project.documents || []), clientSignedDoc] : project.documents,
         isCertified: decision === 'accept' ? true : project.isCertified
       };
 
@@ -2006,17 +2117,48 @@ function ProjectDetailView({
       if (onRequestToast) {
         onRequestToast(
           decision === 'accept'
-            ? 'تم قبول العقد وتوثيق المشروع واعتباره مكتملاً بنجاح!'
+            ? 'تم قبول العقد ورفع النسخة الموقعة يدوياً وتنشيط المشروع بنجاح!'
             : 'تم تسجيل رفض العقد وإرسال الملاحظات للمشرف ليتمكن من إرسال عقد جديد.'
         );
       }
       setContractNotes('');
+      setClientSignedDoc(null);
     } catch (err) {
       console.error(err);
       if (onRequestToast) onRequestToast('حدث خطأ أثناء اعتماد العقد');
     } finally {
       setIsSubmittingContract(false);
     }
+  };
+
+  const handleClientSignedUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const sizeFormatted = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      if (event.target?.result) {
+        try {
+          const fileKey = `signed-contract-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+          const cachedUrl = await storeFile(fileKey, event.target.result as string);
+          setClientSignedDoc({
+            id: `DOC-CNT-SIGNED-${Date.now().toString().slice(-4)}`,
+            name: `العقد الموقع - ${project.title}`,
+            category: 'عقد معتمد',
+            fileUrl: cachedUrl,
+            fileName: file.name,
+            fileSize: sizeFormatted,
+            uploadedAt: new Date().toISOString().split('T')[0],
+            uploadedBy: 'العميل'
+          });
+        } catch (err) {
+          console.error('Error caching signed contract:', err);
+          alert('حدث خطأ أثناء معالجة وحفظ الملف.');
+        }
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const stageLabels = {
@@ -2037,7 +2179,27 @@ function ProjectDetailView({
           <ChevronRight className="w-4 h-4 text-[#C5B198]" />
           <span>رجوع للمشاريع</span>
         </button>
-        
+
+        {project.status === 'ملغي' && (
+          <button
+            onClick={async () => {
+              if (window.confirm('هل أنت متأكد من رغبتك في حذف هذا المشروع الملغي نهائياً من حسابك؟')) {
+                try {
+                  await ProjectService.deleteProject(project.id);
+                  if (onRequestToast) onRequestToast('تم حذف المشروع نهائياً بنجاح.');
+                  onBack();
+                } catch (err) {
+                  console.error(err);
+                  if (onRequestToast) onRequestToast('حدث خطأ أثناء حذف المشروع.');
+                }
+              }
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-[1rem] bg-red-50 hover:bg-red-100 border border-red-200 text-xs font-black text-red-600 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>حذف هذا المشروع الملغي</span>
+          </button>
+        )}
       </div>
 
       {/* Project Title and Overview */}
@@ -2114,7 +2276,59 @@ function ProjectDetailView({
           </div>
 
           {contract.status !== 'ساري وموثق' && (
-            <div className="space-y-3 pt-2">
+            <div className="space-y-4 pt-2">
+              {/* Step 1: Download contract template */}
+              {contract.pdfUrl && (
+                <div className="p-3 bg-[#FAF7F2] rounded-2xl border border-[#E8E2D8] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div>
+                    <span className="font-black text-[#1C3022] block">الخطوة 1: تحميل مسودة العقد المعتمدة</span>
+                    <span className="text-[10px] text-slate-500 font-bold">قم بتحميل مسودة العقد، قراءتها، وتوقيعها يدوياً.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => downloadFile(contract.pdfUrl || '', 'مسودة_العقد.pdf')}
+                    className="bg-[#1C3022] text-white hover:bg-[#122116] px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm transition-all shrink-0 self-start sm:self-auto"
+                  >
+                    <Download className="w-4 h-4 text-[#C5B198]" />
+                    <span>تحميل مسودة العقد</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Step 2: Upload signed contract */}
+              <div className="p-3 bg-[#FAF7F2] rounded-2xl border border-[#E8E2D8] space-y-2.5 text-xs">
+                <span className="font-black text-[#1C3022] block">الخطوة 2: إرفاق العقد بعد التوقيع اليدوي (PDF / صور) *</span>
+                
+                {clientSignedDoc ? (
+                  <div className="p-2.5 bg-white rounded-xl border border-[#E8E2D8] flex items-center justify-between">
+                    <div className="flex items-center gap-2 truncate">
+                      <FileText className="w-4 h-4 text-emerald-700 shrink-0" />
+                      <span className="font-bold text-[#1C3022] truncate">{clientSignedDoc.fileName}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setClientSignedDoc(null)}
+                      className="text-[10px] text-red-600 hover:text-red-800 font-black px-2 py-1 bg-red-50 rounded-md transition-colors"
+                    >
+                      حذف وإعادة إرفاق
+                    </button>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-[#C5B198] bg-white p-4 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50/50 transition-all text-center">
+                    <UploadCloud className="w-6 h-6 text-[#C5B198] mb-1" />
+                    <span className="text-xs font-black text-[#1C3022]">إرفاق العقد الموقع يدوياً من جهازك</span>
+                    <span className="text-[10px] text-slate-400">انقر لاختيار ملف العقد الموقع (PDF)</span>
+                    <input
+                      type="file"
+                      accept=".pdf,image/*"
+                      className="hidden"
+                      onChange={handleClientSignedUpload}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Remarks/Notes */}
               <div>
                 <label className="block text-[11px] font-black text-[#1C3022] mb-1">ملاحظات العميل على العقد (اختياري عند القبول، إلزامي عند الرفض):</label>
                 <textarea
@@ -2126,15 +2340,16 @@ function ProjectDetailView({
                 />
               </div>
 
+              {/* Action buttons */}
               <div className="flex gap-2">
                 <button
                   type="button"
-                  disabled={isSubmittingContract}
+                  disabled={isSubmittingContract || !clientSignedDoc}
                   onClick={() => handleContractDecision('accept')}
-                  className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 rounded-xl text-xs font-black transition-all shadow-sm flex items-center justify-center gap-1.5"
+                  className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white py-2.5 rounded-xl text-xs font-black transition-all shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>قبول العقد واعتماد المشروع</span>
+                  <span>إرسال العقد الموقع وتفعيل المشروع</span>
                 </button>
                 <button
                   type="button"
@@ -2157,6 +2372,55 @@ function ProjectDetailView({
           )}
         </div>
       )}
+
+      {/* Official Contracts & Technical Documents Card (Requirement 7) */}
+      <div className="bg-white rounded-[2rem] p-6 border border-[#E8E2D8] shadow-sm space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-[#F0EBE1]">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-[#EFE7DC] flex items-center justify-center text-[#1C3022]">
+              <FileText className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-black text-sm text-[#1C3022]">ملفات العقود والوثائق الرسمية</h3>
+              <span className="text-[10px] text-slate-400">تحميل المستندات والمخططات المعتمدة وتنزيلها</span>
+            </div>
+          </div>
+        </div>
+
+        {project.documents && project.documents.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {project.documents.map((doc) => (
+              <div 
+                key={doc.id} 
+                className="bg-[#FAF7F2] border border-[#E8E2D8] rounded-2xl p-4 flex items-center justify-between gap-3 hover:border-[#C5B198] transition-all"
+              >
+                <div className="min-w-0">
+                  <span className="text-[10px] font-black text-[#A99379] block mb-0.5">تاريخ الرفع: {doc.uploadedAt}</span>
+                  <h4 className="text-xs font-black text-[#1C3022] truncate" title={doc.name}>
+                    {doc.name}
+                  </h4>
+                  <span className="text-[9px] text-slate-400 block font-bold mt-1">
+                    {doc.fileSize ? `الحجم: ${doc.fileSize}` : 'ملف معتمد'}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => downloadFile(doc.fileUrl, doc.fileName || `${doc.name}.pdf`)}
+                  className="bg-white hover:bg-[#EFE7DC] text-[#1C3022] p-2.5 rounded-xl border border-[#E8E2D8] shadow-xs shrink-0 transition-colors"
+                  title="تحميل الملف"
+                >
+                  <Download className="w-4 h-4 text-[#A99379]" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-5 bg-[#FAF7F2] rounded-2xl border border-[#E8E2D8] text-center text-slate-400 font-bold text-xs">
+            لا توجد وثائق أو عقود رسمية مرفوعة للمشروع حالياً.
+          </div>
+        )}
+      </div>
 
       {/* Project Stages Gallery */}
       <div className="bg-white rounded-[2rem] p-6 border border-[#E8E2D8] shadow-sm space-y-5">
@@ -2376,7 +2640,7 @@ function ProfileView({
             </div>
             <div className="text-right">
               <span className="font-black text-xs text-white block">خدمة العملاء (محادثة فورية)</span>
-              <span className="text-[10px] text-[#C5B198] font-bold block">mfb.15.srt@gmail.com</span>
+              <span className="text-[10px] text-[#C5B198] font-bold block">تواصل مباشر مع الدعم الفني</span>
             </div>
           </div>
           <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center text-[#C5B198] group-hover:translate-x-[-2px] transition-transform">
