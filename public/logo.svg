@@ -1,0 +1,17 @@
+<svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Architectural Emblem: Models of Excellence (نماذج التميز) -->
+  <rect width="200" height="200" rx="40" fill="#1C3022"/>
+  
+  <!-- Right Tower -->
+  <path d="M104 22 L116 26 V96 L104 93 Z" fill="#C5B198"/>
+  <path d="M104 107 C116 110 128 116 142 124 L142 150 L132 150 V136 C124 130 114 125 104 121 Z" fill="#C5B198"/>
+  
+  <!-- Middle Tower -->
+  <path d="M80 50 L91 53 V136 L59 150 L80 141 Z" fill="#C5B198"/>
+  <path d="M80 50 L91 53 V136 L80 132 Z" fill="#C5B198"/>
+  
+  <!-- Windows & Accents -->
+  <path d="M58 80 H69 V102 H58 Z" fill="#1C3022"/>
+  <path d="M58 108 H69 V132 H58 Z" fill="#1C3022"/>
+  <path d="M104 135 H115 V150 H104 Z" fill="#1C3022"/>
+</svg>

@@ -1,0 +1,8 @@
+{
+  "name": "Remix Models of Excellence",
+  "description": "منصة إدارة مشاريع المقاولات ومتابعة الإنجازات وعروض الأسعار.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

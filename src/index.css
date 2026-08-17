@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Tajawal", system-ui, -apple-system, sans-serif;
+  --color-green-brand: #1C3022;
+  --color-green-dark: #122116;
+  --color-green-light: #2A4532;
+  --color-sand-brand: #C5B198;
+  --color-sand-dark: #A99379;
+  --color-sand-light: #EFE7DC;
+  --color-sand-muted: #F8F5F0;
+  --color-cream-bg: #F5F3EF;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scrollbar-width: none; /* Firefox: hide scrollbar */
+    -ms-overflow-style: none; /* IE and Edge */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera: hide scrollbar */
+    width: 0;
+    height: 0;
+  }
+
+  body {
+    background-color: #F5F3EF;
+    color: #192A1D;
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+    transition: background-color 0.3s ease;
+  }
+
+  /* Universal clean scrollbars */
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+/* Smooth Interactive Utilities */
+.smooth-hover {
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.smooth-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(28, 48, 34, 0.08), 0 8px 10px -6px rgba(28, 48, 34, 0.04);
+}
+.smooth-hover:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px -6px rgba(28, 48, 34, 0.09);
+  border-color: #C5B198;
+}
+
+.interactive-tap {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+}
+.interactive-tap:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+.card-construction {
+  @apply bg-white rounded-3xl border border-[#E8E3DA] shadow-sm overflow-hidden;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+}
+.card-construction:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -8px rgba(28, 48, 34, 0.1);
+  border-color: #C5B198;
+}
+
+.status-badge {
+  @apply px-3 py-1 rounded-full text-xs font-bold transition-all duration-300;
+}
+
+.btn-brand-primary {
+  @apply bg-[#1C3022] text-[#F8F5F0] px-6 py-3.5 rounded-2xl font-bold transition-all shadow-sm;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-brand-primary:hover {
+  @apply bg-[#122116];
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -4px rgba(28, 48, 34, 0.25);
+}
+.btn-brand-primary:active {
+  transform: scale(0.97);
+}
+
+.btn-brand-sand {
+  @apply bg-[#C5B198] text-[#1C3022] px-6 py-3.5 rounded-2xl font-bold transition-all shadow-sm;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-brand-sand:hover {
+  @apply bg-[#B9A387];
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -4px rgba(197, 177, 152, 0.35);
+}
+.btn-brand-sand:active {
+  transform: scale(0.97);
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Smooth Progress Bar Animation */
+.smooth-progress {
+  transition: width 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Pulse animation for live indicators */
+@keyframes softPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.08);
+  }
+}
+
+.animate-soft-pulse {
+  animation: softPulse 2.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
