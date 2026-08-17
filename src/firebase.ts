@@ -3,7 +3,7 @@ import {
   getAuth, 
   GoogleAuthProvider,
   signInWithPopup,
-  signOut,
+  signOut, 
   onAuthStateChanged,
   User as FirebaseUser
 } from "firebase/auth";
@@ -25,6 +25,7 @@ import {
   addDoc,
   orderBy
 } from "firebase/firestore";
+import { getAnalytics, isSupported } from "firebase/analytics";
 import firebaseConfigJson from "../firebase-applet-config.json";
 
 const firebaseConfig = {
@@ -33,7 +34,8 @@ const firebaseConfig = {
   projectId: firebaseConfigJson.projectId,
   storageBucket: firebaseConfigJson.storageBucket,
   messagingSenderId: firebaseConfigJson.messagingSenderId,
-  appId: firebaseConfigJson.appId
+  appId: firebaseConfigJson.appId,
+  ...(firebaseConfigJson.measurementId ? { measurementId: firebaseConfigJson.measurementId } : {})
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
@@ -41,26 +43,45 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+// Initialize optional Analytics in browser
+if (typeof window !== "undefined" && firebaseConfig.measurementId) {
+  isSupported().then((supported) => {
+    if (supported) {
+      try {
+        getAnalytics(app);
+      } catch (e) {
+        console.warn("Firebase analytics init error:", e);
+      }
+    }
+  }).catch(() => {});
+}
+
 // Initialize Firestore with auto-detect long polling and multi-tab persistent cache
-const firestoreDbId = (firebaseConfigJson.firestoreDatabaseId && firebaseConfigJson.firestoreDatabaseId !== "(default)")
+const firestoreDbId = (firebaseConfigJson.firestoreDatabaseId && firebaseConfigJson.firestoreDatabaseId !== "(default)" && firebaseConfigJson.firestoreDatabaseId.trim() !== "")
   ? firebaseConfigJson.firestoreDatabaseId
   : undefined;
 
 let firestoreInstance;
 try {
-  firestoreInstance = initializeFirestore(app, {
+  const cacheSettings = {
     experimentalAutoDetectLongPolling: true,
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
     })
-  }, firestoreDbId);
+  };
+  firestoreInstance = firestoreDbId
+    ? initializeFirestore(app, cacheSettings, firestoreDbId)
+    : initializeFirestore(app, cacheSettings);
 } catch {
   try {
-    firestoreInstance = initializeFirestore(app, {
+    const basicSettings = {
       experimentalAutoDetectLongPolling: true
-    }, firestoreDbId);
+    };
+    firestoreInstance = firestoreDbId
+      ? initializeFirestore(app, basicSettings, firestoreDbId)
+      : initializeFirestore(app, basicSettings);
   } catch {
-    firestoreInstance = getFirestore(app, firestoreDbId);
+    firestoreInstance = firestoreDbId ? getFirestore(app, firestoreDbId) : getFirestore(app);
   }
 }
 
