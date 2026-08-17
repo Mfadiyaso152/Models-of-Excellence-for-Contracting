@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Send, MessageSquare, Headphones, ShieldCheck, Mail, Loader2, User as UserIcon, ChevronRight } from 'lucide-react';
 import { User, SupportMessage } from '../types';
-import { db, collection, addDoc, query, where, onSnapshot, orderBy } from '../firebase';
+import { db, collection, addDoc, query, where, onSnapshot, orderBy, doc, setDoc } from '../firebase';
 
 interface Props {
   user: User;
@@ -15,12 +15,16 @@ interface Props {
 const SUPPORT_EMAIL = 'mfb.15.srt@gmail.com';
 
 export function CustomerSupportModal({ user, onClose, onRequestToast, isFullScreen, onLogout }: Props) {
-  const isSupportAgent = user.email?.trim().toLowerCase() === SUPPORT_EMAIL.toLowerCase() || user.role === 'admin';
+  const isSupportAgent = user.email?.trim().toLowerCase() === SUPPORT_EMAIL.toLowerCase() || 
+                         user.email?.trim().toLowerCase() === 'mfb.15.f@gmail.com' ||
+                         user.role === 'admin' || 
+                         user.role === 'supervisor';
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [allClientsMap, setAllClientsMap] = useState<Map<string, { name: string; email: string }>>(new Map());
+  const [presenceMap, setPresenceMap] = useState<Map<string, string>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   // Lock body scroll
@@ -31,6 +35,46 @@ export function CustomerSupportModal({ user, onClose, onRequestToast, isFullScre
       document.body.style.overflow = originalStyle;
     };
   }, []);
+
+  // Track online/presence status for clients
+  useEffect(() => {
+    if (!isSupportAgent && user?.id) {
+      const docRef = doc(db, 'user_presence', user.id);
+      setDoc(docRef, {
+        userId: user.id,
+        status: 'online',
+        name: user.name,
+        lastActive: new Date().toISOString()
+      }).catch(err => console.error('Error setting online status:', err));
+
+      return () => {
+        setDoc(docRef, {
+          userId: user.id,
+          status: 'offline',
+          name: user.name,
+          lastActive: new Date().toISOString()
+        }).catch(err => console.error('Error setting offline status:', err));
+      };
+    }
+  }, [isSupportAgent, user]);
+
+  // Listen to presence of all users for support agent
+  useEffect(() => {
+    if (isSupportAgent) {
+      const q = query(collection(db, 'user_presence'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const pMap = new Map<string, string>();
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.userId) {
+            pMap.set(data.userId, data.status);
+          }
+        });
+        setPresenceMap(pMap);
+      });
+      return () => unsubscribe();
+    }
+  }, [isSupportAgent]);
 
   // Listen to support messages in real-time
   useEffect(() => {
@@ -51,15 +95,10 @@ export function CustomerSupportModal({ user, onClose, onRequestToast, isFullScre
       msgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
       setMessages(msgs);
       setAllClientsMap(clientMap);
-
-      if (isSupportAgent && !selectedClientId && clientMap.size > 0) {
-        const firstClientKey = Array.from(clientMap.keys())[0];
-        setSelectedClientId(firstClientKey);
-      }
     });
 
     return () => unsubscribe();
-  }, [isSupportAgent, selectedClientId]);
+  }, [isSupportAgent]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -128,14 +167,13 @@ export function CustomerSupportModal({ user, onClose, onRequestToast, isFullScre
           <div>
             <h3 className="text-sm font-black flex items-center gap-2">
               <span>{isSupportAgent && selectedClientId ? (allClientsMap.get(selectedClientId)?.name || 'محادثة عميل') : 'خدمة عملاء نماذج التميز'}</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className={`w-2.5 h-2.5 rounded-full ${(!isSupportAgent || (selectedClientId && presenceMap.get(selectedClientId) === 'online')) ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+              {isSupportAgent && selectedClientId && (
+                <span className="text-[10px] font-bold text-slate-400">
+                  {presenceMap.get(selectedClientId) === 'online' ? 'متصل' : 'غير متصل'}
+                </span>
+              )}
             </h3>
-            {isSupportAgent && selectedClientId && (
-              <p className="text-[10px] text-slate-500 font-bold flex items-center gap-1 mt-0.5">
-                <Mail className="w-3 h-3 text-[#C5B198]" />
-                <span>{allClientsMap.get(selectedClientId)?.email || 'عميل'}</span>
-              </p>
-            )}
             {!isSupportAgent && (
               <p className="text-[10px] text-[#C5B198] font-bold mt-0.5">
                 نحن هنا لخدمتكم والإجابة على كافة استفساراتكم الهندسية
@@ -178,26 +216,27 @@ export function CustomerSupportModal({ user, onClose, onRequestToast, isFullScre
               </div>
             ) : (
               <div className="grid gap-2">
-                {Array.from(allClientsMap.entries()).map(([cId, info]) => (
-                  <button
-                    key={cId}
-                    onClick={() => setSelectedClientId(cId)}
-                    className="w-full text-right p-4 rounded-[1.5rem] transition-all flex items-center gap-4 bg-[#FAF7F2] border border-[#E8E2D8] hover:bg-[#EFE7DC] group"
-                  >
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-black shrink-0 bg-white text-[#C5B198] border border-[#E8E2D8] group-hover:scale-105 transition-transform">
-                      <UserIcon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 truncate">
-                      <h5 className="text-sm font-black text-[#1C3022] truncate mb-0.5">{info.name}</h5>
-                      <span className="text-[11px] block truncate text-slate-400">
-                        {info.email || 'محادثة عميل'}
-                      </span>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#C5B198] opacity-0 group-hover:opacity-100 transition-opacity">
-                      <ChevronRight className="w-4 h-4 rotate-180" />
-                    </div>
-                  </button>
-                ))}
+                {Array.from(allClientsMap.entries()).map(([cId, info]) => {
+                  const isOnline = presenceMap.get(cId) === 'online';
+                  return (
+                    <button
+                      key={cId}
+                      onClick={() => setSelectedClientId(cId)}
+                      className="w-full text-right p-4 rounded-[1.5rem] transition-all flex items-center gap-4 bg-[#FAF7F2] border border-[#E8E2D8] hover:bg-[#EFE7DC] group"
+                    >
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-black shrink-0 bg-white text-[#C5B198] border border-[#E8E2D8] group-hover:scale-105 transition-transform relative">
+                        <UserIcon className="w-5 h-5" />
+                        <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+                      </div>
+                      <div className="flex-1 truncate">
+                        <h5 className="text-sm font-black text-[#1C3022] truncate">{info.name}</h5>
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#C5B198] opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ChevronRight className="w-4 h-4 rotate-180" />
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -206,9 +245,6 @@ export function CustomerSupportModal({ user, onClose, onRequestToast, isFullScre
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {filteredMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 space-y-3">
-                  <div className="w-14 h-14 rounded-full bg-white border border-[#E8E2D8] flex items-center justify-center text-[#C5B198]">
-                    <MessageSquare className="w-6 h-6" />
-                  </div>
                   <h4 className="text-sm font-black text-[#1C3022]">ابدأ المحادثة الفورية</h4>
                   <p className="text-[11px] max-w-xs text-slate-400 leading-relaxed">
                     جميع المحادثات محفوظة سحابياً ويتم الرد عليها من قبل فريق الدعم الفني بشكل فوري.

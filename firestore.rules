@@ -20,5 +20,10 @@ service cloud.firestore {
     match /support_messages/{messageId} {
       allow read, write: if true;
     }
+
+    // User presence collection
+    match /user_presence/{presenceId} {
+      allow read, write: if true;
+    }
   }
 }

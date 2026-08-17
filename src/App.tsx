@@ -75,7 +75,9 @@ import {
   collection,
   query,
   where,
-  onSnapshot
+  onSnapshot,
+  doc,
+  setDoc
 } from './firebase';
 import { Users } from 'lucide-react';
 
@@ -266,6 +268,40 @@ export default function App() {
     };
   }, [user?.id, user?.role, user?.email]);
 
+  // Global user presence tracker
+  useEffect(() => {
+    if (user?.id) {
+      const docRef = doc(db, 'user_presence', user.id);
+      setDoc(docRef, {
+        userId: user.id,
+        status: 'online',
+        name: user.name,
+        lastActive: new Date().toISOString()
+      }).catch(err => console.error('Error setting global online status:', err));
+
+      const handleBeforeUnload = () => {
+        setDoc(docRef, {
+          userId: user.id,
+          status: 'offline',
+          name: user.name,
+          lastActive: new Date().toISOString()
+        }).catch(err => console.error('Error setting global offline status on unload:', err));
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        setDoc(docRef, {
+          userId: user.id,
+          status: 'offline',
+          name: user.name,
+          lastActive: new Date().toISOString()
+        }).catch(err => console.error('Error setting global offline status on cleanup:', err));
+      };
+    }
+  }, [user?.id, user?.name]);
+
   // Fallback explicit load data helper
   const loadData = async (currentUser: User) => {
     try {
@@ -294,6 +330,14 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
+      if (user?.id) {
+        await setDoc(doc(db, 'user_presence', user.id), {
+          userId: user.id,
+          status: 'offline',
+          name: user.name,
+          lastActive: new Date().toISOString()
+        });
+      }
       await signOut(auth);
     } catch (err) {
       console.error('Sign out error:', err);
@@ -441,7 +485,7 @@ export default function App() {
                   setActiveTab('home');
                 }}
               >
-                <Logo size="sm" showText={false} />
+                <Logo size="sm" showText={false} showFrame={false} />
               </motion.div>
               <div
                 onClick={() => {
@@ -943,18 +987,20 @@ function AuthFlow({
     } catch (err: any) {
       console.error('Google Sign In Error:', err);
       const code = err?.code;
+      const errorMsg = err?.message || '';
+      
       if (code === 'auth/popup-closed-by-user') {
         setErrorMessage('تم إغلاق نافذة تسجيل الدخول قبل إتمام العملية. يرجى المحاولة مرة أخرى.');
       } else if (code === 'auth/cancelled-popup-request') {
         setErrorMessage('تم إلغاء طلب تسجيل الدخول.');
       } else if (code === 'auth/popup-blocked') {
-        setErrorMessage('تم حظر النافذة المنبثقة من قبل المتصفح. يرجى السماح بالنوافذ المنبثقة.');
+        setErrorMessage('تم حظر النافذة المنبثقة من قبل المتصفح. يرجى السماح بالنوافذ المنبثقة أو فتح التطبيق في نافذة مستقلة جديدة.');
+      } else if (code === 'auth/internal-error' || errorMsg.includes('auth/internal-error') || code === 'auth/network-request-failed') {
+        setErrorMessage('خطأ في الاتصال بسحابة جوجل (أو حظر ملفات الارتباط داخل الإطار). يرجى فتح التطبيق في نافذة مستقلة جديدة (New Tab) عبر الرابط المباشر لتسجيل الدخول بأمان وسرعة.');
       } else if (code === 'auth/unauthorized-domain') {
-        setErrorMessage('النطاق الحالي غير مصرح به في مشروع Firebase (models-app-fbbfe). يرجى التأكد من إضافة النطاق في Authorized Domains بلوحة تحكم Firebase.');
-      } else if (code === 'auth/network-request-failed') {
-        setErrorMessage('تعذر الاتصال بالشبكة، يرجى التأكد من اتصال الإنترنت والمحاولة مجدداً.');
+        setErrorMessage('النطاق الحالي غير مصرح به في مشروع Firebase. يرجى التأكد من إضافة النطاق في Authorized Domains بلوحة تحكم Firebase.');
       } else {
-        setErrorMessage(err?.message || 'حدث خطأ أثناء تسجيل الدخول بحساب Google. يرجى المحاولة مرة أخرى.');
+        setErrorMessage('حدث خطأ أثناء الاتصال بجوجل. إذا كنت داخل إطار معاينة AI Studio، يرجى فتح التطبيق في نافذة جديدة خارج الإطار لتسجيل الدخول بسلاسة.');
       }
     } finally {
       setIsLoading(false);
