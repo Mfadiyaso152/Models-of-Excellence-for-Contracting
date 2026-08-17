@@ -452,7 +452,7 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <h1 className="text-sm sm:text-base font-black tracking-wide text-white">نماذج التميز</h1>
                   <span className="inline-flex items-center justify-center h-5 px-2 bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] font-black rounded-full leading-none shadow-xs">
-                    بيتا
+                    BETA
                   </span>
                   {isSupervisor && (
                     <span className="inline-flex items-center justify-center h-5 px-2 bg-[#C5B198] text-[#1C3022] text-[10px] font-black rounded-full leading-none shadow-xs">
@@ -2372,6 +2372,71 @@ function ProjectDetailView({
           )}
         </div>
       )}
+
+      {/* Contracts & Agreements Card */}
+      <div className="bg-white rounded-[2rem] p-6 border border-[#E8E2D8] shadow-sm space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-[#F0EBE1]">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-[#EFE7DC] flex items-center justify-center text-[#1C3022]">
+              <FileCheck className="w-4 h-4 text-[#C5B198]" />
+            </div>
+            <div>
+              <h3 className="font-black text-sm text-[#1C3022]">العقود والاتفاقيات والمخططات</h3>
+              <span className="text-[10px] text-slate-400">سجل بجميع العقود ومسوداتها المرفقة بالمشروع</span>
+            </div>
+          </div>
+        </div>
+
+        {project.contracts && project.contracts.length > 0 ? (
+          <div className="space-y-3">
+            {project.contracts.map((c) => (
+              <div 
+                key={c.id} 
+                className="bg-[#FAF7F2] border border-[#E8E2D8] rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#C5B198] transition-all"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-black text-[#1C3022]">{c.title || 'عقد مشروع المقاولة'}</span>
+                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                      c.status === 'ساري وموثق' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                      c.status === 'مرفوض' ? 'bg-red-50 text-red-800 border-red-200' :
+                      'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}>
+                      {c.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] text-slate-500 font-bold flex-wrap">
+                    <span>رقم العقد: {c.contractNumber}</span>
+                    <span>•</span>
+                    <span>القيمة الإجمالية: {c.totalValue}</span>
+                    {c.clientSignedDate && (
+                      <>
+                        <span>•</span>
+                        <span>تاريخ التوقيع: {c.clientSignedDate}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {c.pdfUrl && (
+                  <button
+                    type="button"
+                    onClick={() => downloadFile(c.pdfUrl || '', `${c.title || 'عقد'}_رقم_${c.contractNumber}.pdf`)}
+                    className="bg-white hover:bg-[#EFE7DC] text-[#1C3022] px-3.5 py-2 rounded-xl border border-[#E8E2D8] shadow-xs text-xs font-black flex items-center gap-1.5 transition-all self-start sm:self-auto shrink-0"
+                  >
+                    <Download className="w-4 h-4 text-[#C5B198]" />
+                    <span>تحميل نسخة العقد ({c.status === 'ساري وموثق' ? 'موقع وثابت' : 'مسودة للطباعة والتوقيع'})</span>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="p-5 bg-[#FAF7F2] rounded-2xl border border-[#E8E2D8] text-center text-slate-400 font-bold text-xs">
+            لا توجد عقود مدرجة في سجل المشروع حالياً.
+          </div>
+        )}
+      </div>
 
       {/* Official Contracts & Technical Documents Card (Requirement 7) */}
       <div className="bg-white rounded-[2rem] p-6 border border-[#E8E2D8] shadow-sm space-y-4">

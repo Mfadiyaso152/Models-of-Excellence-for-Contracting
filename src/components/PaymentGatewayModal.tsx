@@ -29,6 +29,15 @@ const INSTITUTION_BANK_INFO = {
 };
 
 export function PaymentGatewayModal({ project, installment, onClose, onSuccess }: Props) {
+  // Lock body scroll when modal is active
+  React.useEffect(() => {
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalStyle;
+    };
+  }, []);
+
   const [receiptFileUrl, setReceiptFileUrl] = useState<string | null>(null);
   const [receiptFileName, setReceiptFileName] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -106,8 +115,14 @@ export function PaymentGatewayModal({ project, installment, onClose, onSuccess }
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto bg-white rounded-[2rem] p-6 sm:p-8 shadow-sm border border-[#E8E2D8] text-[#192A1D] space-y-6 my-4" dir="rtl">
-      {!isSubmitted ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto" dir="rtl">
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="w-full max-w-2xl bg-white rounded-[2.5rem] p-6 sm:p-8 shadow-2xl border border-[#E8E2D8] text-[#192A1D] space-y-6 my-4 max-h-[90vh] overflow-y-auto"
+      >
+        {!isSubmitted ? (
         <div className="space-y-5">
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-[#F0EBE1]">
@@ -319,6 +334,7 @@ export function PaymentGatewayModal({ project, installment, onClose, onSuccess }
           </button>
         </div>
       )}
+      </motion.div>
     </div>
   );
 }
