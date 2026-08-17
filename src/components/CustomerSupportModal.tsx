@@ -78,7 +78,13 @@ export function CustomerSupportModal({ user, onClose, onRequestToast, isFullScre
 
   // Listen to support messages in real-time
   useEffect(() => {
-    const q = query(collection(db, 'support_messages'));
+    if (!user?.id) return;
+    
+    // Support agents listen to all messages, clients listen ONLY to their own messages for absolute real-time speed and isolation
+    const q = isSupportAgent 
+      ? query(collection(db, 'support_messages'))
+      : query(collection(db, 'support_messages'), where('clientId', '==', user.id));
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const msgs: SupportMessage[] = [];
       const clientMap = new Map<string, { name: string; email: string }>();
@@ -98,7 +104,7 @@ export function CustomerSupportModal({ user, onClose, onRequestToast, isFullScre
     });
 
     return () => unsubscribe();
-  }, [isSupportAgent]);
+  }, [isSupportAgent, user?.id]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -167,12 +173,6 @@ export function CustomerSupportModal({ user, onClose, onRequestToast, isFullScre
           <div>
             <h3 className="text-sm font-black flex items-center gap-2">
               <span>{isSupportAgent && selectedClientId ? (allClientsMap.get(selectedClientId)?.name || 'محادثة عميل') : 'خدمة عملاء نماذج التميز'}</span>
-              <span className={`w-2.5 h-2.5 rounded-full ${(!isSupportAgent || (selectedClientId && presenceMap.get(selectedClientId) === 'online')) ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
-              {isSupportAgent && selectedClientId && (
-                <span className="text-[10px] font-bold text-slate-400">
-                  {presenceMap.get(selectedClientId) === 'online' ? 'متصل' : 'غير متصل'}
-                </span>
-              )}
             </h3>
             {!isSupportAgent && (
               <p className="text-[10px] text-[#C5B198] font-bold mt-0.5">
@@ -217,7 +217,6 @@ export function CustomerSupportModal({ user, onClose, onRequestToast, isFullScre
             ) : (
               <div className="grid gap-2">
                 {Array.from(allClientsMap.entries()).map(([cId, info]) => {
-                  const isOnline = presenceMap.get(cId) === 'online';
                   return (
                     <button
                       key={cId}
@@ -226,7 +225,6 @@ export function CustomerSupportModal({ user, onClose, onRequestToast, isFullScre
                     >
                       <div className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-black shrink-0 bg-white text-[#C5B198] border border-[#E8E2D8] group-hover:scale-105 transition-transform relative">
                         <UserIcon className="w-5 h-5" />
-                        <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
                       </div>
                       <div className="flex-1 truncate">
                         <h5 className="text-sm font-black text-[#1C3022] truncate">{info.name}</h5>

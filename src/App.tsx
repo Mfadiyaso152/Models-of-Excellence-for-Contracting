@@ -495,9 +495,6 @@ export default function App() {
               >
                 <div className="flex items-center gap-2">
                   <h1 className="text-sm sm:text-base font-black tracking-wide text-white">نماذج التميز</h1>
-                  <span className="inline-flex items-center justify-center h-5 px-2 bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[10px] font-black rounded-full leading-none shadow-xs">
-                    BETA
-                  </span>
                   {isSupervisor && (
                     <span className="inline-flex items-center justify-center h-5 px-2 bg-[#C5B198] text-[#1C3022] text-[10px] font-black rounded-full leading-none shadow-xs">
                       مشرف
@@ -1796,14 +1793,7 @@ function HomeView({
         className="bg-[#1C3022] rounded-[2rem] p-6 text-white relative overflow-hidden shadow-xl border border-[#284430]"
       >
         <div className="relative z-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C5B198]/20 border border-[#C5B198]/30 text-[#C5B198] text-[10px] font-black mb-3">
-            <Sparkles className="w-3 h-3 text-[#C5B198]" />
-            <span>خدمة هندسية متكاملة</span>
-          </div>
-          <h3 className="text-lg font-black mb-1.5 text-white">هل لديك مشروع بناء أو تطوير؟</h3>
-          <p className="text-[#EFE7DC]/80 text-xs mb-5 leading-relaxed font-medium">
-            احصل على دراسة هندسية وعرض سعر دقيق ومعتمد من مهندسي نماذج التميز.
-          </p>
+          <h3 className="text-lg font-black mb-5 text-white">هل لديك مشروع بناء أو تطوير؟</h3>
           <motion.button 
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.95 }}
