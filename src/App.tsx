@@ -419,10 +419,10 @@ export default function App() {
         <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-[#284430] rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative z-10 flex flex-col items-center max-w-md mx-auto">
-          <div className="w-24 h-24 flex items-center justify-center mb-5 animate-pulse rounded-3xl overflow-hidden shadow-2xl">
-            <Logo size="lg" showText={false} />
+          <div className="flex items-center justify-center mb-5 animate-pulse overflow-hidden">
+            <Logo size="sm" showText={false} showFrame={false} />
           </div>
-          <h2 className="text-xl font-black text-[#1C3022] mb-2 tracking-wide">نماذج التميز للمقاولات</h2>
+          <h2 className="text-xl font-black text-[#EFE7DC] mb-2 tracking-wide">نماذج التميز للمقاولات</h2>
           <div className="flex items-center gap-2.5 text-[#C5B198] text-xs font-bold bg-[#284430]/80 px-4 py-2 rounded-xl border border-[#3b6147]/60 mb-6">
             <Loader2 className="w-4 h-4 animate-spin text-[#C5B198]" />
             <span>جاري التحقق من الجلسة والاتصال السحابي الآمن...</span>
@@ -465,61 +465,33 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Brand Header - Cylindrical Pill Design (Fixed at Top) */}
+      {/* Brand Header - Liquid Glass (Static) */}
       <div className="sticky top-0 z-40 px-3 sm:px-4 pt-2.5 pb-1 bg-gradient-to-b from-[#FAF7F2] via-[#FAF7F2]/90 to-transparent backdrop-blur-[2px] transition-all duration-300">
-        <motion.header 
-          whileTap={{ scale: 0.98, y: 1 }}
-          transition={{ type: "spring", stiffness: 400, damping: 25 }}
-          className="bg-[#1C3022] text-white px-4 sm:px-6 py-2 sm:py-2.5 rounded-full border border-[#284430] shadow-xl shadow-black/10 backdrop-blur-md cursor-pointer select-none"
+        <header 
+          className="bg-[#FAF7F2]/50 backdrop-blur-3xl backdrop-saturate-[1.9] border border-white/70 text-[#1C3022] px-4 sm:px-6 py-2 sm:py-2.5 rounded-full shadow-[0_12px_32px_-4px_rgba(28,48,34,0.06),inset_0_1px_1px_rgba(255,255,255,0.7)]"
         >
           <div className="flex items-center justify-between">
-            {/* Institution Corner Logo & Brand Name */}
+            {/* ... logo and actions content ... */}
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <motion.div 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex items-center justify-center cursor-pointer select-none shrink-0"
-                title="مؤسسة نماذج التميز"
-                onClick={() => {
-                  setSelectedProject(null);
-                  setActiveTab('home');
-                }}
-              >
+              <div className="flex items-center justify-center shrink-0" title="مؤسسة نماذج التميز">
                 <Logo size="sm" showText={false} showFrame={false} />
-              </motion.div>
-              <div
-                onClick={() => {
-                  setSelectedProject(null);
-                  setActiveTab('home');
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <h1 className="text-sm sm:text-base font-black tracking-wide text-white">نماذج التميز</h1>
-                  {isSupervisor && (
-                    <span className="inline-flex items-center justify-center h-5 px-2 bg-[#C5B198] text-[#1C3022] text-[10px] font-black rounded-full leading-none shadow-xs">
-                      مشرف
-                    </span>
-                  )}
-                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm sm:text-base font-black tracking-wide text-[#1C3022]">نماذج التميز</h1>
+                {isSupervisor && (
+                  <span className="inline-flex items-center justify-center h-5 px-2 bg-white/70 border border-white/80 text-[#1C3022] text-[10px] font-black rounded-full leading-none shadow-xs">
+                    مشرف
+                  </span>
+                )}
               </div>
             </div>
-
             <div className="flex items-center gap-2">
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowSupportModal(true);
-                }}
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#C5B198] text-[#1C3022] flex items-center justify-center shadow-sm hover:bg-[#b5a188] active:scale-95 transition-all"
-                title="خدمة العملاء"
-                aria-label="خدمة العملاء"
-              >
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/60 border border-white/80 text-[#1C3022] flex items-center justify-center shadow-xs">
                 <Headphones className="w-4 h-4 sm:w-5 sm:h-5 text-[#1C3022]" />
-              </motion.button>
+              </div>
             </div>
           </div>
-        </motion.header>
+        </header>
       </div>
 
       {/* Main Tab Views */}
@@ -735,8 +707,8 @@ export default function App() {
         />
       )}
 
-      {/* Bottom Navigation with Smooth Spring Indicator */}
-      <nav className="fixed bottom-3 left-3 right-3 max-w-4xl mx-auto bg-[#FAF7F2]/95 backdrop-blur-xl border border-[#E8E2D8] shadow-lg shadow-black/5 rounded-full h-18 flex items-center justify-around px-3 z-40">
+      {/* Bottom Navigation with iOS 26 Liquid Interaction */}
+      <nav className="fixed bottom-4 left-4 right-4 max-w-4xl mx-auto bg-[#FAF7F2]/50 backdrop-blur-3xl backdrop-saturate-[1.9] border border-white/70 shadow-[0_16px_40px_-6px_rgba(28,48,34,0.1),inset_0_1px_1px_rgba(255,255,255,0.7)] rounded-full h-18 flex items-center justify-around px-3.5 z-40">
         {[
           { id: 'home', label: isSupervisor ? 'العملاء' : 'الرئيسية', icon: isSupervisor ? Users : HardHat },
           { id: 'projects', label: isSupervisor ? 'المشاريع' : 'مشاريعي', icon: HardHat },
@@ -748,17 +720,18 @@ export default function App() {
           return (
             <motion.button
               key={item.id}
-              whileTap={{ scale: 0.92 }}
+              whileTap={{ scale: 0.85, opacity: 0.8 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
               onClick={() => { setActiveTab(item.id as any); setSelectedProject(null); }}
-              className={`flex-1 flex flex-col items-center justify-center py-2 px-2 rounded-full relative transition-colors duration-300 ${
+              className={`flex-1 flex flex-col items-center justify-center py-2 px-2 rounded-full relative transition-colors duration-300 overflow-hidden ${
                 isActive ? 'text-[#1C3022]' : 'text-slate-500 hover:text-[#1C3022]'
               }`}
             >
               {isActive && (
                 <motion.div
                   layoutId="active-bottom-nav-pill"
-                  className="absolute inset-0 bg-[#EFE7DC] rounded-full -z-10 shadow-xs border border-[#E8E2D8]/80"
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  className="absolute inset-1 bg-white/60 backdrop-blur-xs rounded-full -z-10 shadow-xs border border-white/80"
+                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 />
               )}
               <Icon className={`w-5 h-5 mb-0.5 transition-transform duration-300 ${isActive ? 'scale-110 text-[#1C3022]' : 'text-slate-500'}`} />
